@@ -1,15 +1,28 @@
+ENTRY(Reset_Handler)
+
 MEMORY {
     FLASH   (rx) : ORIGIN = 0x08000000, LENGTH = 128K
     RAM    (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
-
     CCMRAM (rwx) : ORIGIN = 0x10000000, LENGTH = 0K
 }
 
-OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")
-
-ENTRY(Reset_Handler)
-
 __end_stack = ORIGIN(RAM) + LENGTH(RAM);
+
+/* Definitions used by FreeRTOS for MPU capable microcontrollers. */
+_Privileged_Functions_Region_Size = 32K;
+_Privileged_Data_Region_Size = 512;
+
+__FLASH_segment_start__ = ORIGIN(FLASH);
+__FLASH_segment_end__ = __FLASH_segment_start__ + LENGTH(FLASH);
+
+__privileged_functions_start__ = ORIGIN(FLASH);
+__privileged_functions_end__ = __privileged_functions_start__ + _Privileged_Functions_Region_Size;
+
+__SRAM_segment_start__ = ORIGIN(RAM);
+__SRAM_segment_end__ = __SRAM_segment_start__ + LENGTH(RAM);
+
+__privileged_data_start__ = ORIGIN(RAM);
+__privileged_data_end__ = ORIGIN(RAM) + _Privileged_Data_Region_Size;
 
 SECTIONS {
     /* Put startup code into FLASH, ALWAYS DO THIS FIRST */
@@ -134,3 +147,5 @@ SECTIONS {
         *(.ARM.attributes)
     }
 }
+
+OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")

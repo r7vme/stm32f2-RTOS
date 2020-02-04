@@ -3,8 +3,10 @@ FLASH  = 0x08000000
 
 USE_ST_CMSIS = true
 USE_ST_HAL = true
+USE_RTOS = true
 
 STM32_CUBE_PATH   ?= ./stm32f205xx
+RTOS_PATH   ?= ./FreeRTOS/Source
 
 # Standard values for project folders
 BIN_FOLDER ?= ./bin
@@ -40,8 +42,8 @@ GCC_FLAGS += -ffreestanding
 # GCC_FLAGS += -std=c11
 
 # Flags - C++ Language Options
-GCC_FLAGS += -fno-threadsafe-statics
-GCC_FLAGS += -fno-rtti
+#GCC_FLAGS += -fno-threadsafe-statics
+#GCC_FLAGS += -fno-rtti
 GCC_FLAGS += -fno-exceptions
 GCC_FLAGS += -fno-unwind-tables
 
@@ -111,6 +113,17 @@ ifdef USE_ST_HAL
     SRC += $(HAL_SRC)
 endif
 
+ifdef USE_RTOS
+    GCC_FLAGS += -I$(RTOS_PATH)/include
+    GCC_FLAGS += -I$(RTOS_PATH)/portable/GCC/ARM_CM3_MPU
+    GCC_FLAGS += -I$(RTOS_PATH)/CMSIS_RTOS_V2
+
+    SRC += $(RTOS_PATH)/*.c
+    SRC += $(RTOS_PATH)/portable/Common/*.c $(RTOS_PATH)/portable/GCC/ARM_CM3_MPU/*.c $(RTOS_PATH)/portable/MemMang/heap_1.c
+    SRC += $(RTOS_PATH)/CMSIS_RTOS_V2/*.c
+    #SRC += $(shell find $(RTOS_PATH)/portable -name '*.c')
+endif
+
 # Make all
 all:$(BIN_FILE_PATH)
 
@@ -118,10 +131,10 @@ $(BIN_FILE_PATH): $(ELF_FILE_PATH)
 	$(OBJCOPY) -O binary $^ $@
 
 $(ELF_FILE_PATH): $(SRC) $(OBJ_FILE_PATH) | $(BIN_FOLDER)
-	$(CXX) $(GCC_FLAGS) $^ -o $@
+	$(CC) $(GCC_FLAGS) $^ -o $@
 
 $(OBJ_FILE_PATH): $(DEVICE_STARTUP) | $(OBJ_FOLDER)
-	$(CXX) $(GCC_FLAGS) $^ -c -o $@
+	$(CC) $(GCC_FLAGS) $^ -c -o $@
 
 $(BIN_FOLDER):
 	mkdir $(BIN_FOLDER)
