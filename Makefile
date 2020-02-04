@@ -5,22 +5,25 @@ USE_ST_CMSIS = true
 USE_ST_HAL = true
 USE_RTOS = true
 
-STM32_CUBE_PATH   ?= ./stm32f205xx
+# STM32F205 specific
+SERIES_CPU  = cortex-m3
+SERIES_ARCH = armv7-m
+SERIES_FOLDER = STM32F2xx
+MAPPED_DEVICE = STM32F205xx
+
+STM32CUBE_PATH   ?= ./$(MAPPED_DEVICE)
 RTOS_PATH   ?= ./FreeRTOS/Source
+LINKER_SCRIPT ?= ./$(MAPPED_DEVICE)/$(DEVICE).ld
+DEVICE_STARTUP = ./$(MAPPED_DEVICE)/startup/$(MAPPED_DEVICE).s
+
+TOOLCHAIN_PATH      = /usr/bin
+TOOLCHAIN_SEPARATOR = /
 
 # Standard values for project folders
 BIN_FOLDER ?= ./bin
 OBJ_FOLDER ?= ./obj
 SRC_FOLDER ?= ./src
 INC_FOLDER ?= ./inc
-
-# STM32F205 specific
-SERIES_CPU  = cortex-m3
-SERIES_ARCH = armv7-m
-SERIES_FOLDER = STM32F2xx
-MAPPED_DEVICE = STM32F205xx
-TOOLCHAIN_PATH      = /usr/bin
-TOOLCHAIN_SEPARATOR = /
 
 CC      = $(TOOLCHAIN_PATH)$(TOOLCHAIN_SEPARATOR)arm-none-eabi-gcc
 CXX     = $(TOOLCHAIN_PATH)$(TOOLCHAIN_SEPARATOR)arm-none-eabi-g++
@@ -31,29 +34,14 @@ OBJCOPY = $(TOOLCHAIN_PATH)$(TOOLCHAIN_SEPARATOR)arm-none-eabi-objcopy
 OBJDUMP = $(TOOLCHAIN_PATH)$(TOOLCHAIN_SEPARATOR)arm-none-eabi-objdump
 SIZE    = $(TOOLCHAIN_PATH)$(TOOLCHAIN_SEPARATOR)arm-none-eabi-size
 
-# Default for flags
 GCC_FLAGS ?=
-
-# Flags - Overall Options
 GCC_FLAGS += -specs=nosys.specs
-
-# Flags - C Language Options
 GCC_FLAGS += -ffreestanding
-# GCC_FLAGS += -std=c11
-
-# Flags - C++ Language Options
-#GCC_FLAGS += -fno-threadsafe-statics
-#GCC_FLAGS += -fno-rtti
 GCC_FLAGS += -fno-exceptions
 GCC_FLAGS += -fno-unwind-tables
-
-# Flags - Warning Options
 GCC_FLAGS += -Wall
 GCC_FLAGS += -Wextra
-
-# Flags - Debugging Options
 GCC_FLAGS += -g
-
 # Flags - Optimization Options
 GCC_FLAGS += -ffunction-sections
 GCC_FLAGS += -fdata-sections
@@ -65,11 +53,11 @@ GCC_FLAGS += -D $(MAPPED_DEVICE)
 
 # Flags - Linker Options
 # GCC_FLAGS += -nostdlib
-GCC_FLAGS += -Wl,-T./stm32f205xx/STM32F205xB.ld
+GCC_FLAGS += -Wl,-T$(LINKER_SCRIPT)
 
 # Flags - Directory Options
 GCC_FLAGS += -I./inc
-GCC_FLAGS += -I./stm32f205xx/startup
+GCC_FLAGS += -I./$(MAPPED_DEVICE)/startup
 
 # Flags - Machine-dependant options
 GCC_FLAGS += -mcpu=$(SERIES_CPU)
@@ -91,38 +79,27 @@ OBJ_FILE_PATH = $(OBJ_FOLDER)/$(OBJ_FILE_NAME)
 SRC ?=
 SRC += $(SRC_FOLDER)/*.c
 
-# Startup file
-DEVICE_STARTUP = ./stm32f205xx/startup/STM32F205xx.s
+# CMSIS
+GCC_FLAGS += -D CALL_ARM_SYSTEM_INIT
+GCC_FLAGS += -I./$(MAPPED_DEVICE)/CMSIS/ARM/inc
+GCC_FLAGS += -I./$(MAPPED_DEVICE)/CMSIS/$(SERIES_FOLDER)/inc
+SRC += ./$(MAPPED_DEVICE)/CMSIS/$(SERIES_FOLDER)/src/*.c
 
-# Include the CMSIS files, using the HAL implies using the CMSIS
-ifneq (,$(or USE_ST_CMSIS, USE_ST_HAL))
-    GCC_FLAGS += -D CALL_ARM_SYSTEM_INIT
-    GCC_FLAGS += -I$(STM32_CUBE_PATH)/CMSIS/ARM/inc
-    GCC_FLAGS += -I$(STM32_CUBE_PATH)/CMSIS/$(SERIES_FOLDER)/inc
+# HAL
+GCC_FLAGS += -D USE_HAL_DRIVER
+GCC_FLAGS += -I./$(MAPPED_DEVICE)/HAL/$(SERIES_FOLDER)/inc
+HAL_SRC := $(shell find $(STM32CUBE_PATH)/HAL/$(SERIES_FOLDER)/src/*.c ! -name '*_template.c')
+SRC += $(HAL_SRC)
 
-    SRC += $(STM32_CUBE_PATH)/CMSIS/$(SERIES_FOLDER)/src/*.c
-endif
-
-# Include the HAL files
-ifdef USE_ST_HAL
-    GCC_FLAGS += -D USE_HAL_DRIVER
-    GCC_FLAGS += -I$(STM32_CUBE_PATH)/HAL/$(SERIES_FOLDER)/inc
-
-    # A simply expanded variable is used here to perform the find command only once.
-    HAL_SRC := $(shell find $(STM32_CUBE_PATH)/HAL/$(SERIES_FOLDER)/src/*.c ! -name '*_template.c')
-    SRC += $(HAL_SRC)
-endif
-
-ifdef USE_RTOS
-    GCC_FLAGS += -I$(RTOS_PATH)/include
-    GCC_FLAGS += -I$(RTOS_PATH)/portable/GCC/ARM_CM3_MPU
-    GCC_FLAGS += -I$(RTOS_PATH)/CMSIS_RTOS_V2
-
-    SRC += $(RTOS_PATH)/*.c
-    SRC += $(RTOS_PATH)/portable/Common/*.c $(RTOS_PATH)/portable/GCC/ARM_CM3_MPU/*.c $(RTOS_PATH)/portable/MemMang/heap_1.c
-    SRC += $(RTOS_PATH)/CMSIS_RTOS_V2/*.c
-    #SRC += $(shell find $(RTOS_PATH)/portable -name '*.c')
-endif
+# RTOS
+GCC_FLAGS += -I$(RTOS_PATH)/include
+GCC_FLAGS += -I$(RTOS_PATH)/portable/GCC/ARM_CM3_MPU
+GCC_FLAGS += -I$(RTOS_PATH)/CMSIS_RTOS_V2
+SRC += $(RTOS_PATH)/*.c
+SRC += $(RTOS_PATH)/portable/Common/*.c
+SRC += $(RTOS_PATH)/portable/GCC/ARM_CM3_MPU/*.c
+SRC += $(RTOS_PATH)/portable/MemMang/heap_1.c
+SRC += $(RTOS_PATH)/CMSIS_RTOS_V2/*.c
 
 # Make all
 all:$(BIN_FILE_PATH)
